@@ -1,0 +1,586 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ISL Annotation Tool</title>
+  <style>
+    :root{
+      --bg:#0b0f17;
+      --card:#121a27;
+      --card2:#0f1622;
+      --text:#e7eefc;
+      --muted:#a7b3c8;
+      --border:rgba(255,255,255,.10);
+      --btn:#1b2638;
+      --btnHover:#23324a;
+      --ok:#1a7f37;
+      --bad:#b42318;
+      --focus:#6ea8fe;
+    }
+
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      background: radial-gradient(1200px 600px at 20% -10%, rgba(110,168,254,.22), transparent 60%),
+                  radial-gradient(900px 500px at 90% 10%, rgba(26,127,55,.18), transparent 55%),
+                  var(--bg);
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Helvetica Neue", sans-serif;
+    }
+
+    .shell{
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 16px 16px 28px;
+    }
+
+    .topbar{
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(10px);
+      background: rgba(11,15,23,.75);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 12px;
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    label{ color:var(--muted); font-size: 12px; }
+    select, input[type="text"]{
+      background: rgba(255,255,255,.06);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 8px 10px;
+      outline: none;
+      min-width: 170px;
+    }
+    input[type="text"]{ min-width: 240px; }
+    select:focus, input[type="text"]:focus{
+      border-color: rgba(110,168,254,.7);
+      box-shadow: 0 0 0 3px rgba(110,168,254,.18);
+    }
+
+    .badge{
+      padding:6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 12px;
+      background: rgba(255,255,255,.04);
+    }
+
+    .btn{
+      border: 1px solid var(--border);
+      background: var(--btn);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 8px 12px;
+      cursor:pointer;
+      transition: .15s ease;
+      font-weight: 600;
+      font-size: 13px;
+    }
+    .btn:hover{ background: var(--btnHover); }
+    .btn:disabled{ opacity:.45; cursor:not-allowed; }
+    .btn.primary{
+      border-color: rgba(110,168,254,.35);
+      background: rgba(110,168,254,.12);
+    }
+    .btn.primary:hover{ background: rgba(110,168,254,.18); }
+    .btn.good{
+      border-color: rgba(26,127,55,.45);
+      background: rgba(26,127,55,.16);
+    }
+    .btn.good:hover{ background: rgba(26,127,55,.22); }
+    .btn.bad{
+      border-color: rgba(180,35,24,.45);
+      background: rgba(180,35,24,.16);
+    }
+    .btn.bad:hover{ background: rgba(180,35,24,.22); }
+
+    a.btn{ text-decoration:none; display:inline-flex; align-items:center; gap:6px; }
+
+    .titleRow{
+      margin-top: 14px;
+      display:flex;
+      align-items:baseline;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    h1{
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: .2px;
+    }
+    .sub{
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .layout{
+      margin-top: 14px;
+      display:grid;
+      grid-template-columns: 360px 1fr;
+      gap: 14px;
+      align-items:start;
+    }
+
+    @media (max-width: 980px){
+      .layout{ grid-template-columns: 1fr; }
+    }
+
+    .panel{
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: rgba(255,255,255,.04);
+      overflow:hidden;
+    }
+
+    .panelHeader{
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
+      background: rgba(255,255,255,.03);
+    }
+    .panelHeader h2{
+      margin:0;
+      font-size: 14px;
+      letter-spacing:.2px;
+      color: var(--text);
+    }
+
+    .panelBody{ padding: 12px; }
+
+    /* Reference video smaller */
+    .refWrap{
+      display:flex;
+      flex-direction:column;
+      gap: 10px;
+    }
+    video.refVideo{
+      width: 100%;
+      max-width: 330px;   /* smaller */
+      height: 190px;      /* fixed height */
+      border-radius: 14px;
+      background:#000;
+      border: 1px solid var(--border);
+    }
+
+    /* Collected grid */
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 12px;
+      padding: 12px;
+    }
+
+    .card{
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: rgba(18,26,39,.55);
+      overflow:hidden;
+    }
+    .cardBody{ padding: 10px; display:flex; flex-direction:column; gap:8px; }
+
+    video.clip{
+      width: 100%;
+      height: 200px;
+      border-radius: 14px;
+      background:#000;
+      border: 1px solid var(--border);
+    }
+    img.frame{
+      width: 100%;
+      height: 200px;
+      object-fit:contain;
+      border-radius: 14px;
+      background:#000;
+      border: 1px solid var(--border);
+    }
+
+    .muted{ color:var(--muted); font-size:12px; }
+    .status{
+      font-size:12px;
+      color: var(--muted);
+      white-space: pre-wrap;
+      min-height: 18px;
+    }
+    .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
+    .slider{ width:100%; }
+
+    .emptyState{
+      padding: 16px;
+      color: var(--muted);
+      font-size: 13px;
+      border-top: 1px dashed rgba(255,255,255,.14);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="shell">
+    <div class="topbar">
+      <label>User</label>
+      <select id="userSelect"></select>
+
+      <button class="btn" id="prevBtn">◀ Previous</button>
+      <button class="btn" id="nextBtn">Next ▶</button>
+
+      <span class="badge" id="progressBadge">Loading…</span>
+
+      <label>Word</label>
+      <select id="wordSelect"></select>
+
+      <input id="wordSearch" type="text" placeholder="Type word + Enter" />
+
+      <a class="btn primary" href="/api/export.csv" target="_blank">⬇ Download CSV</a>
+    </div>
+
+    <div class="titleRow">
+      <div>
+        <h1 id="title">Loading…</h1>
+        <div class="sub" id="subtitle"></div>
+      </div>
+      <div class="badge" id="countBadge"></div>
+    </div>
+
+    <div class="layout">
+      <!-- LEFT: Reference -->
+      <div class="panel">
+        <div class="panelHeader">
+          <h2>Reference</h2>
+          <span class="badge" id="refWordBadge">—</span>
+        </div>
+        <div class="panelBody refWrap">
+          <video id="refVideo" class="refVideo" controls preload="metadata"></video>
+          <div class="muted">
+            Tip: Use keyboard <b>N</b> (next) and <b>P</b> (previous)
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Collected -->
+      <div class="panel">
+        <div class="panelHeader">
+          <h2>Collected Clips (Selected User)</h2>
+          <span class="badge" id="clipsBadge">0 clips</span>
+        </div>
+        <div id="grid" class="grid"></div>
+        <div id="emptyState" class="emptyState" style="display:none;">
+          No collected clips for this user for this word.
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+let users = [];
+let currentUser = null;
+let userWords = [];
+let currentWord = null;
+let meta = null;
+
+function mediaUrl(p){ return `/media?path=${encodeURIComponent(p)}`; }
+function framesApiUrl(p){ return `/api/frames?path=${encodeURIComponent(p)}`; }
+function frameUrl(key, idx){
+  const name = `frame_${String(idx).padStart(6,'0')}.jpg`;
+  return `/frames/${key}/${name}`;
+}
+
+async function loadUsers(){
+  const res = await fetch("/api/users");
+  const data = await res.json();
+  users = data.users;
+
+  document.getElementById("progressBadge").textContent =
+    `Overall labeled: ${data.labeled_videos}/${data.total_videos} | Users: ${users.length} | Ref words: ${data.reference_words ?? "?"}`;
+
+  const userSel = document.getElementById("userSelect");
+  userSel.innerHTML = "";
+  for (const u of users){
+    const opt = document.createElement("option");
+    opt.value = u; opt.textContent = u;
+    userSel.appendChild(opt);
+  }
+  if (users.length > 0) await loadUser(users[0]);
+}
+
+async function loadUser(userId){
+  currentUser = userId;
+  document.getElementById("userSelect").value = userId;
+
+  const res = await fetch(`/api/user/${encodeURIComponent(userId)}/words`);
+  const data = await res.json();
+  userWords = data.words;
+
+  document.getElementById("countBadge").textContent = `${userWords.length} words`;
+  document.getElementById("progressBadge").textContent =
+    `User ${userId} labeled: ${data.labeled_videos}/${data.total_videos} | Words: ${userWords.length}`;
+
+  const wordSel = document.getElementById("wordSelect");
+  wordSel.innerHTML = "";
+  for (const w of userWords){
+    const opt = document.createElement("option");
+    opt.value = w; opt.textContent = w;
+    wordSel.appendChild(opt);
+  }
+
+  if (userWords.length > 0) await loadWord(userWords[0]);
+}
+
+async function loadWord(word){
+  currentWord = word;
+  document.getElementById("wordSelect").value = word;
+  document.getElementById("refWordBadge").textContent = word;
+
+  const res = await fetch(`/api/user/${encodeURIComponent(currentUser)}/word/${encodeURIComponent(word)}`);
+  meta = await res.json();
+
+  document.getElementById("title").textContent =
+    `User ${meta.user_id} · Word: ${meta.word} (${meta.index+1}/${meta.total_words})`;
+
+  document.getElementById("subtitle").textContent =
+    `Reference shown on left. Annotate collected clips on right.`;
+
+  const ref = document.getElementById("refVideo");
+  ref.src = mediaUrl(meta.reference_path);
+
+  document.getElementById("prevBtn").disabled = !meta.prev_word;
+  document.getElementById("nextBtn").disabled = !meta.next_word;
+
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
+
+  const emptyState = document.getElementById("emptyState");
+  const clipsBadge = document.getElementById("clipsBadge");
+  clipsBadge.textContent = `${meta.videos.length} clips`;
+
+  if (meta.videos.length === 0){
+    emptyState.style.display = "block";
+    return;
+  } else {
+    emptyState.style.display = "none";
+  }
+
+  for (const v of meta.videos){
+    const card = document.createElement("div");
+    card.className = "card";
+
+    const body = document.createElement("div");
+    body.className = "cardBody";
+
+    // container for either video or frames
+    const mediaBox = document.createElement("div");
+
+    const vid = document.createElement("video");
+    vid.className = "clip";
+    vid.controls = true;
+    vid.preload = "none";
+    vid.dataset.src = mediaUrl(v.collected_path);
+    vid.dataset.loaded = "0";
+
+    const status = document.createElement("div");
+    status.className = "status";
+    status.textContent = "Press play. If it fails, click Load Frames.";
+
+    const metaLine = document.createElement("div");
+    metaLine.className = "muted";
+    metaLine.textContent = `User: ${v.user_id} · Video ID: ${v.id}`;
+
+    let framesState = null;
+
+    async function loadFrames(){
+      status.textContent = "Extracting frames… (first time may take a few seconds)";
+      try {
+        const r = await fetch(framesApiUrl(v.collected_path));
+        if (!r.ok){
+          const t = await r.text();
+          status.textContent = "Frames error:\n" + t;
+          return;
+        }
+        const data = await r.json();
+        framesState = { key: data.key, count: data.count, idx: 1, timer: null };
+
+        mediaBox.innerHTML = "";
+
+        const img = document.createElement("img");
+        img.className = "frame";
+        img.src = frameUrl(framesState.key, framesState.idx);
+
+        const slider = document.createElement("input");
+        slider.type = "range";
+        slider.min = "1";
+        slider.max = String(framesState.count);
+        slider.value = "1";
+        slider.className = "slider";
+
+        const controls = document.createElement("div");
+        controls.className = "row";
+
+        const prevF = document.createElement("button");
+        prevF.className = "btn";
+        prevF.textContent = "◀ Frame";
+        prevF.onclick = () => {
+          framesState.idx = Math.max(1, framesState.idx - 1);
+          slider.value = String(framesState.idx);
+          img.src = frameUrl(framesState.key, framesState.idx);
+        };
+
+        const nextF = document.createElement("button");
+        nextF.className = "btn";
+        nextF.textContent = "Frame ▶";
+        nextF.onclick = () => {
+          framesState.idx = Math.min(framesState.count, framesState.idx + 1);
+          slider.value = String(framesState.idx);
+          img.src = frameUrl(framesState.key, framesState.idx);
+        };
+
+        const playF = document.createElement("button");
+        playF.className = "btn primary";
+        playF.textContent = "▶ Play Frames";
+        playF.onclick = () => {
+          if (framesState.timer){
+            clearInterval(framesState.timer);
+            framesState.timer = null;
+            playF.textContent = "▶ Play Frames";
+            return;
+          }
+          playF.textContent = "⏸ Pause";
+          framesState.timer = setInterval(() => {
+            framesState.idx += 1;
+            if (framesState.idx > framesState.count) framesState.idx = 1;
+            slider.value = String(framesState.idx);
+            img.src = frameUrl(framesState.key, framesState.idx);
+          }, Math.round(1000 / 12));
+        };
+
+        slider.oninput = () => {
+          framesState.idx = parseInt(slider.value, 10);
+          img.src = frameUrl(framesState.key, framesState.idx);
+        };
+
+        controls.appendChild(prevF);
+        controls.appendChild(playF);
+        controls.appendChild(nextF);
+
+        mediaBox.appendChild(img);
+        mediaBox.appendChild(slider);
+        mediaBox.appendChild(controls);
+
+        status.textContent = `✅ Frames ready (${framesState.count} frames).`;
+      } catch (e){
+        status.textContent = "❌ Frames exception: " + e;
+      }
+    }
+
+    vid.addEventListener("play", () => {
+      if (vid.dataset.loaded === "0"){
+        status.textContent = "Loading preview video…";
+        vid.src = vid.dataset.src;
+        vid.load();
+        vid.dataset.loaded = "1";
+      }
+    });
+
+    vid.addEventListener("error", () => {
+      status.textContent = "❌ Video failed. Click Load Frames.";
+    });
+
+    vid.addEventListener("loadedmetadata", () => {
+      status.textContent = "✅ Video loaded.";
+    });
+
+    const row = document.createElement("div");
+    row.className = "row";
+
+    const loadFramesBtn = document.createElement("button");
+    loadFramesBtn.className = "btn primary";
+    loadFramesBtn.textContent = "Load Frames";
+    loadFramesBtn.onclick = () => loadFrames();
+
+    const good = document.createElement("button");
+    good.className = "btn good";
+    good.textContent = (v.label === "correct") ? "✅ Correct (saved)" : "✅ Correct";
+    good.onclick = async () => {
+      await saveLabel(v.id, "correct");
+      await loadWord(currentWord);
+    };
+
+    const bad = document.createElement("button");
+    bad.className = "btn bad";
+    bad.textContent = (v.label === "wrong") ? "❌ Wrong (saved)" : "❌ Wrong";
+    bad.onclick = async () => {
+      await saveLabel(v.id, "wrong");
+      await loadWord(currentWord);
+    };
+
+    row.appendChild(loadFramesBtn);
+    row.appendChild(good);
+    row.appendChild(bad);
+
+    mediaBox.appendChild(vid);
+    body.appendChild(mediaBox);
+    body.appendChild(metaLine);
+    body.appendChild(status);
+    body.appendChild(row);
+
+    card.appendChild(body);
+    grid.appendChild(card);
+  }
+}
+
+async function saveLabel(video_id, label){
+  const params = new URLSearchParams({ video_id, label });
+  const res = await fetch(`/api/annotate?${params.toString()}`, { method: "POST" });
+  if(!res.ok){
+    const t = await res.text();
+    alert("Save failed: " + t);
+  }
+}
+
+document.getElementById("userSelect").onchange = async (e) => {
+  await loadUser(e.target.value);
+};
+
+document.getElementById("wordSelect").onchange = async (e) => {
+  await loadWord(e.target.value);
+};
+
+document.getElementById("prevBtn").onclick = () => {
+  if (meta?.prev_word) loadWord(meta.prev_word);
+};
+document.getElementById("nextBtn").onclick = () => {
+  if (meta?.next_word) loadWord(meta.next_word);
+};
+
+document.getElementById("wordSearch").addEventListener("keydown", (e) => {
+  if (e.key === "Enter"){
+    const w = e.target.value.trim().toLowerCase();
+    if (userWords.includes(w)) loadWord(w);
+    else alert(`Word not found in reference list: ${w}`);
+  }
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key.toLowerCase() === "n" && meta?.next_word) loadWord(meta.next_word);
+  if (e.key.toLowerCase() === "p" && meta?.prev_word) loadWord(meta.prev_word);
+});
+
+loadUsers();
+</script>
+</body>
+</html>
+

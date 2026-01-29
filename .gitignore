@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+annotations.db
+previews/
+frames_cache/
+ffmpeg_errors.log
+*.mp4
+*.mpg
+*.mov
+*.mkv
+*.avi
+*.webm

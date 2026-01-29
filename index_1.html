@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>ISL Annotation Tool</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+:root{
+  --bg:#0b0f17;
+  --panel:#0f1622;
+  --card:#121a27;
+  --border:rgba(255,255,255,.12);
+  --text:#e7eefc;
+  --muted:#a7b3c8;
+  --good:#1a7f37;
+  --bad:#b42318;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto}
+.container{max-width:1500px;margin:auto;padding:16px}
+
+.topbar{
+  display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+  padding:12px;background:var(--panel);border:1px solid var(--border);
+  border-radius:14px;position:sticky;top:0;z-index:10;
+}
+select,input{
+  background:#141c2b;border:1px solid var(--border);
+  color:var(--text);border-radius:8px;padding:6px 10px;
+}
+button,.btn{
+  background:#1a2334;border:1px solid var(--border);
+  color:var(--text);border-radius:10px;padding:6px 12px;cursor:pointer;
+  text-decoration:none;display:inline-flex;align-items:center;gap:6px;
+}
+button:hover,.btn:hover{background:#24314a}
+button.good{background:rgba(26,127,55,.2)}
+button.bad{background:rgba(180,35,24,.2)}
+.badge{
+  font-size:12px;color:var(--muted);
+  border:1px solid var(--border);padding:6px 10px;border-radius:999px;
+}
+.layout{display:grid;grid-template-columns:360px 1fr;gap:14px;margin-top:14px}
+@media(max-width:900px){.layout{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:16px}
+.panel h3{margin:0;padding:10px 14px;border-bottom:1px solid var(--border);font-size:14px}
+.panel-body{padding:12px}
+
+.ref-video{width:100%;height:200px;background:#000;border-radius:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:10px}
+video.clip,img.frame{width:100%;height:200px;background:#000;border-radius:12px}
+.status{font-size:12px;color:var(--muted);margin:6px 0;white-space:pre-wrap}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.slider{width:100%}
+
+.notice{
+  margin-top:8px;
+  padding:8px 10px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  color:var(--muted);
+  background:rgba(255,255,255,.03);
+}
+
+/* LOGIN MODAL */
+.modal{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.6);
+  display:flex;align-items:center;justify-content:center;
+  z-index:999;
+}
+.modal .box{
+  width:min(520px,92vw);
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:16px;
+}
+.modal h2{margin:0 0 10px 0;font-size:18px}
+.modal p{margin:0 0 12px 0;color:var(--muted);font-size:13px}
+.modal .row{display:flex;gap:10px;align-items:center}
+.modal .box input{flex:1}
+</style>
+</head>
+
+<body>
+
+<!-- LOGIN -->
+<div id="loginModal" class="modal" style="display:none">
+  <div class="box">
+    <h2>Login</h2>
+    <p>Select your User ID to continue (no password).</p>
+    <div class="row">
+      <input id="loginUser" placeholder="Example: 001" />
+      <button id="loginBtn">Login</button>
+    </div>
+    <div class="notice" id="loginMsg" style="display:none"></div>
+  </div>
+</div>
+
+<div class="container">
+
+<div class="topbar">
+  <span class="badge" id="whoBadge">User: —</span>
+
+  <button id="logoutBtn">Logout</button>
+
+  <button id="prevBtn">◀ Prev</button>
+  <button id="nextBtn">Next ▶</button>
+
+  <label>Word</label>
+  <select id="wordSelect"></select>
+  <input id="wordSearch" placeholder="Type word + Enter" />
+
+  <!-- Download always clickable (no disable). We show message if blocked -->
+  <button id="downloadBtn">⬇ Download CSV</button>
+
+  <span class="badge" id="wordStatusBadge">This word: —</span>
+  <span class="badge" id="progressBadge">Progress: —</span>
+</div>
+
+<div class="layout">
+  <div class="panel">
+    <h3>Reference</h3>
+    <div class="panel-body">
+      <video id="refVideo" class="ref-video" controls preload="metadata"></video>
+      <div class="notice" id="wordNotice">—</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Collected Clips</h3>
+    <div class="panel-body">
+      <div id="grid" class="grid"></div>
+      <div id="emptyState" class="badge" style="display:none">No collected clips for this word</div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+let currentUser = null;
+let words = [];
+let meta = null;
+
+const mediaUrl = p => `/media?path=${encodeURIComponent(p)}`;
+const framesApi = p => `/api/frames?path=${encodeURIComponent(p)}`;
+const frameUrl = (k,i) => `/frames/${k}/frame_${String(i).padStart(6,'0')}.jpg`;
+
+function showLogin(show){
+  document.getElementById("loginModal").style.display = show ? "flex" : "none";
+}
+
+function setLoginMsg(msg){
+  const el = document.getElementById("loginMsg");
+  el.style.display = "block";
+  el.textContent = msg;
+}
+
+async function login(userId){
+  userId = (userId || "").trim();
+  if(!userId) return setLoginMsg("Enter user id like 001");
+
+  // normalize "1" -> "001"
+  if(/^\d+$/.test(userId)) userId = userId.padStart(3,"0");
+
+  currentUser = userId;
+  localStorage.setItem("isl_user", currentUser);
+  document.getElementById("whoBadge").textContent = `User: ${currentUser}`;
+
+  showLogin(false);
+
+  await loadWords();
+  await refreshSummary();
+  await loadWord(words[0]);
+}
+
+function logout(){
+  localStorage.removeItem("isl_user");
+  location.reload();
+}
+
+async function refreshSummary(){
+  const r = await fetch(`/api/user/${encodeURIComponent(currentUser)}/summary`);
+  const d = await r.json();
+
+  document.getElementById("progressBadge").textContent =
+    `Ref: ${d.total_reference_words} | Completed: ${d.completed_words} | Started: ${d.started_words} | Not started: ${d.not_started_words} | No clips: ${d.no_clip_words}`;
+}
+
+async function loadWords(){
+  const r = await fetch(`/api/user/${encodeURIComponent(currentUser)}/words`);
+  const d = await r.json();
+  words = d.words || [];
+
+  const ws = document.getElementById("wordSelect");
+  ws.innerHTML = "";
+  words.forEach(w=>{
+    const o = document.createElement("option");
+    o.value = w;
+    o.textContent = w;
+    ws.appendChild(o);
+  });
+}
+
+async function loadWord(w){
+  const r = await fetch(`/api/user/${encodeURIComponent(currentUser)}/word/${encodeURIComponent(w)}`);
+  meta = await r.json();
+
+  document.getElementById("wordSelect").value = meta.word;
+  document.getElementById("refVideo").src = mediaUrl(meta.reference_path);
+
+  document.getElementById("prevBtn").disabled = !meta.prev_word;
+  document.getElementById("nextBtn").disabled = !meta.next_word;
+
+  const total = meta.word_total_clips;
+  const labeled = meta.word_labeled_clips;
+
+  if(total === 0){
+    document.getElementById("wordStatusBadge").textContent = `This word: 0/0 (No clips)`;
+    document.getElementById("wordNotice").textContent =
+      "No collected clips exist for this word for this user. You can still navigate to other words.";
+  } else {
+    document.getElementById("wordStatusBadge").textContent = `This word: ${labeled}/${total}`;
+    document.getElementById("wordNotice").textContent =
+      "Annotate all clips for this word. You can download only after completing this word (server will allow).";
+  }
+
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
+  document.getElementById("emptyState").style.display = meta.videos.length ? "none" : "block";
+
+  for(const v of meta.videos){
+    const c = document.createElement("div");
+    c.className = "card";
+
+    const vid = document.createElement("video");
+    vid.className = "clip";
+    vid.controls = true;
+    vid.preload = "none";
+    vid.onclick = ()=>{ vid.src = mediaUrl(v.collected_path); vid.load(); };
+
+    const st = document.createElement("div");
+    st.className="status";
+    st.textContent="Play video or use frames";
+
+    const row = document.createElement("div");
+    row.className="row";
+
+    const fr = document.createElement("button");
+    fr.textContent="Load Frames";
+    fr.onclick=()=>loadFrames(v,c,st);
+
+    const good = document.createElement("button");
+    good.className="good";
+    good.textContent = (v.label==="correct") ? "✅ Correct (saved)" : "Correct";
+    good.onclick=()=>annotate(v.id,"correct");
+
+    const bad = document.createElement("button");
+    bad.className="bad";
+    bad.textContent = (v.label==="wrong") ? "❌ Wrong (saved)" : "Wrong";
+    bad.onclick=()=>annotate(v.id,"wrong");
+
+    row.append(fr,good,bad);
+    c.append(vid,st,row);
+    grid.appendChild(c);
+  }
+}
+
+async function annotate(id,label){
+  const r = await fetch(`/api/annotate?video_id=${encodeURIComponent(id)}&label=${encodeURIComponent(label)}`,{method:"POST"});
+  if(!r.ok){
+    alert("Save failed:\n" + await r.text());
+    return;
+  }
+  // reload word + refresh progress (so user sees counts)
+  await loadWord(meta.word);
+  await refreshSummary();
+}
+
+async function loadFrames(v, col, st){
+  try{
+    st.textContent="Extracting frames…";
+    const r=await fetch(framesApi(v.collected_path));
+    if(!r.ok){
+      st.textContent="Frames error:\n" + await r.text();
+      return;
+    }
+    const d=await r.json();
+    let i=1, t=null;
+
+    col.innerHTML="";
+
+    const img=document.createElement("img");
+    img.className="frame";
+    img.src=frameUrl(d.key,i);
+
+    const s=document.createElement("input");
+    s.type="range"; s.min=1; s.max=d.count; s.value=1; s.className="slider";
+    s.oninput=()=>{ i=parseInt(s.value,10); img.src=frameUrl(d.key,i); };
+
+    const p=document.createElement("button");
+    p.textContent="▶ Play";
+    p.onclick=()=>{
+      if(t){ clearInterval(t); t=null; p.textContent="▶ Play"; return; }
+      p.textContent="⏸ Pause";
+      t=setInterval(()=>{
+        i++; if(i>d.count) i=1;
+        s.value=i;
+        img.src=frameUrl(d.key,i);
+      }, 80);
+    };
+
+    col.append(img,s,p);
+    st.textContent=`Frames loaded (${d.count})`;
+  }catch(e){
+    st.textContent="Frames exception:\n" + e;
+  }
+}
+
+/* Download always clickable, server decides.
+   If not complete -> show message, DO NOT disable button. */
+document.getElementById("downloadBtn").onclick = async () => {
+  if(!meta) return;
+
+  const check = await fetch(`/api/can_export?user_id=${encodeURIComponent(currentUser)}&word=${encodeURIComponent(meta.word)}`);
+  const d = await check.json();
+
+  if(!d.complete){
+    alert(`Download not ready.\n\nComplete this word first.\nProgress: ${d.labeled}/${d.total}`);
+    return;
+  }
+
+  // allowed
+  window.location.href = `/api/export.csv?user_id=${encodeURIComponent(currentUser)}&word=${encodeURIComponent(meta.word)}`;
+};
+
+document.getElementById("logoutBtn").onclick = logout;
+document.getElementById("wordSelect").onchange = e => loadWord(e.target.value);
+document.getElementById("prevBtn").onclick = () => meta?.prev_word && loadWord(meta.prev_word);
+document.getElementById("nextBtn").onclick = () => meta?.next_word && loadWord(meta.next_word);
+
+document.getElementById("wordSearch").onkeydown = (e) => {
+  if(e.key==="Enter"){
+    const w=e.target.value.trim().toLowerCase();
+    if(words.includes(w)) loadWord(w);
+    else alert("Word not found in reference list.");
+  }
+};
+
+document.getElementById("loginBtn").onclick = () => login(document.getElementById("loginUser").value);
+
+(function boot(){
+  const saved = localStorage.getItem("isl_user");
+  if(saved){
+    login(saved);
+  } else {
+    showLogin(true);
+  }
+})();
+</script>
+
+</body>
+</html>
+
