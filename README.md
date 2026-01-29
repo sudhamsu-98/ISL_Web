@@ -68,7 +68,7 @@ This tool expects datasets to be present locally:
 
 ##Step 4: Run the Server
 -Start the FastAPI server using Uvicorn:
--uvicorn app_2:app --reload --host 127.0.0.1 --port 8000
+-uvicorn app_1:app --reload --host 127.0.0.1 --port 8000
 
 ##Step 5: Open the Web App
 -Open your browser and go to:
