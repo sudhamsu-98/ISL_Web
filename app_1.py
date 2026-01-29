@@ -14,7 +14,7 @@ APP_DIR = Path(__file__).parent.resolve()
 DB_PATH = APP_DIR / "annotations.db"
 MAPPING_CSV = APP_DIR / "mapping.csv"
 
-# ✅ Reference folder (source of truth for all 500 words)
+# Reference folder (source of truth for all 500 words)
 REFERENCE_DIR = Path(r"/home/antpc/Downloads/5000_RTH_Videos (Copy)").resolve()
 
 # SAFE caches (originals untouched)
@@ -41,7 +41,7 @@ FRAMES_MAX = 240
 FRAMES_HEIGHT = 360
 JPG_Q = 5
 
-# ✅ in-memory reference map: word -> reference video path
+# in-memory reference map: word -> reference video path
 REFERENCE_MAP: Dict[str, str] = {}
 REFERENCE_WORDS: List[str] = []
 
@@ -446,7 +446,7 @@ def ensure_frames(original: Path) -> Tuple[str, int]:
 def startup():
     init_db()
     load_mapping_if_needed()
-    scan_reference_folder()  # ✅ this is what makes words = 500
+    scan_reference_folder()  #this is what makes words = 500
 
 # ---------------- UI ----------------
 
@@ -482,7 +482,7 @@ def list_users():
         "reference_words": len(REFERENCE_WORDS),
     }
 
-# ✅ OPTION A: always return all reference words from folder
+# OPTION A: always return all reference words from folder
 @app.get("/api/user/{user_id}/words")
 def user_words(user_id: str):
     all_words = get_reference_words()
@@ -507,7 +507,7 @@ def user_words(user_id: str):
         "labeled_videos": int(stat["labeled"] or 0),
     }
 
-# ✅ OPTION A: always show reference; collected list may be empty
+# OPTION A: always show reference; collected list may be empty
 @app.get("/api/user/{user_id}/word/{word}")
 def user_word_detail(user_id: str, word: str):
     word_l = word.strip().lower()
